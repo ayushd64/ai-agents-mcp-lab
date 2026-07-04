@@ -1,0 +1,23 @@
+name: Local Assistant
+version: 1.0.0
+schema: v1
+
+models:
+  - name: GLM (NVIDIA)
+    provider: nvidia
+    model: z-ai/glm-5.2
+    apiKey: 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
+    roles:
+      - chat
+      - edit
+      - apply
+    capabilities:
+      - tool_use
+
+mcpServers:
+  - name: Notes & Weather
+    command: F:\Ayush\ai-agents-mcp-lab\phase-03-first-mcp-server\.venv\Scripts\python.exe
+    args:
+      - notes_server.py
+    cwd: F:\Ayush\ai-agents-mcp-lab\phase-03-first-mcp-server
+
