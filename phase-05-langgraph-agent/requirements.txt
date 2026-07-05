@@ -3,3 +3,4 @@ langchain-mcp-adapters
 langchain-openai
 mcp[cli]
 python-dotenv
+langfuse
