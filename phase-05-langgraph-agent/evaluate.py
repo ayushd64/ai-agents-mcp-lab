@@ -25,6 +25,18 @@ model = ChatOpenAI(
     base_url=os.environ["OPENAI_BASE_URL"],
     api_key=os.environ["OPENAI_API_KEY"],
 )
+
+SYSTEM_PROMPT = (
+    "You are a helpful assistant. For questions about company policies, products, or "
+    "internal facts, ALWAYS call search_docs first and answer ONLY from what it returns. "
+    "Each retrieved chunk is prefixed with its source, like [from handbook.md]. "
+    "Cite that source in your answer, e.g. 'According to handbook.md, ...'. "
+    "If the answer isn't in the retrieved text, say you don't know."
+)
+
+
+
+
 judge = ChatOpenAI(
     model=os.environ["MODEL"],
     base_url=os.environ["OPENAI_BASE_URL"],

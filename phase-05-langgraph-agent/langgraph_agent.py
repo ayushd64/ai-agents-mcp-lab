@@ -35,6 +35,11 @@ mcp_client = MultiServerMCPClient({
         "args": ["-y", "@modelcontextprotocol/server-filesystem", os.path.abspath("sandbox")],
         "transport": "stdio",
     },
+    "knowledge": {
+        "command": sys.executable,
+        "args": [os.path.abspath("rag_server.py")],
+        "transport": "stdio",
+    },
 })
 
 
