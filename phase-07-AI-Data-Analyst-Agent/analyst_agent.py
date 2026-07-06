@@ -26,6 +26,10 @@ SYSTEM_PROMPT = (
     "4. After you get results, answer the user in one or two clear sentences, stating the numbers.\n"
     "5. If a query errors, read the error, fix your SQL, and try again.\n"
     "6. If a question uses a business term or metric you're unsure of (e.g. 'Q1', 'growth', " "'best region', what a column means), call search_glossary FIRST, then apply that " "definition when writing your SQL.\n"
+    "7. If the user asks for a chart, graph, plot, or to 'show' a visualization, call make_chart "
+    "with a SELECT query, a chart_type (bar/line/scatter/area), and the x and y column names that "
+    "match your query's output columns. After it succeeds, just tell the user the chart is ready — "
+    "do NOT paste the chart spec into your reply.\n"
 )
 
 # --- 3. Point the agent at your SQL MCP server ---
@@ -38,6 +42,11 @@ mcp_client = MultiServerMCPClient({
     "knowledge": {
         "command": sys.executable,
         "args": [os.path.abspath("knowledge_server.py")],
+        "transport": "stdio",
+    },
+    "chart": {
+        "command": sys.executable,
+        "args": [os.path.abspath("chart_server.py")],
         "transport": "stdio",
     },
 })

@@ -1,0 +1,50 @@
+<!DOCTYPE html><html><head>
+<script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+</head><body style="font-family:sans-serif;padding:24px">
+<h3>Chart preview</h3><div id="chart"></div>
+<script>vegaEmbed('#chart', {
+  "$schema": "https://vega.github.io/schema/vega-lite/v6.4.1.json",
+  "config": {
+    "view": {
+      "continuousHeight": 300,
+      "continuousWidth": 300
+    }
+  },
+  "data": {
+    "values": [
+      {
+        "region": "North",
+        "total": 68000
+      },
+      {
+        "region": "East",
+        "total": 60000
+      },
+      {
+        "region": "South",
+        "total": 46000
+      },
+      {
+        "region": "West",
+        "total": 38500
+      }
+    ]
+  },
+  "encoding": {
+    "x": {
+      "field": "region",
+      "type": "nominal"
+    },
+    "y": {
+      "field": "total",
+      "type": "quantitative"
+    }
+  },
+  "mark": {
+    "type": "bar"
+  },
+  "title": "Revenue by region"
+});</script>
+</body></html>

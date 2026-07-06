@@ -1,5 +1,6 @@
 duckdb
 pandas
+altair
 mcp[cli]
 langgraph
 langchain-openai
