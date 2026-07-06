@@ -1,0 +1,17 @@
+date,region,product,revenue,units
+2025-01-10,North,Widget,12000,240
+2025-01-18,South,Widget,9500,190
+2025-02-05,East,Gadget,15000,150
+2025-02-14,West,Widget,8000,160
+2025-02-22,North,Gadget,18000,180
+2025-03-03,South,Gadget,11000,110
+2025-03-11,East,Widget,10500,210
+2025-03-20,West,Gadget,9000,90
+2025-04-08,North,Widget,14000,280
+2025-04-15,South,Widget,12500,250
+2025-05-02,East,Gadget,21000,210
+2025-05-19,West,Widget,9500,190
+2025-05-27,North,Gadget,24000,240
+2025-06-06,South,Gadget,13000,130
+2025-06-14,East,Widget,13500,270
+2025-06-23,West,Gadget,12000,120
