@@ -7,6 +7,7 @@ from langchain_openai import ChatOpenAI
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langgraph.prebuilt import create_react_agent
 from langgraph.checkpoint.memory import InMemorySaver
+from guardrails import check_input, check_output
 
 # --- 1. Config: reads whichever model your .env points to (local OR cloud) ---
 load_dotenv(override=True)
@@ -67,6 +68,12 @@ async def main():
         q = input("You: ").strip()
         if q.lower() in {"exit", "quit"}:
             break
+
+        ok, msg = check_input(q)        # GATE 1: input guard
+        if not ok:
+            print("Analyst:", msg, "\n")
+            continue
+
         result = await agent.ainvoke(
             {"messages": [{"role": "user", "content": q}]},
             config=config,
@@ -84,7 +91,7 @@ async def main():
             if isinstance(text, str) and text.strip():
                 answer = text
                 break
-        print("Analyst:", answer or "(no answer — the model returned empty)", "\n")
+        print("Analyst:", check_output(answer), "\n")       # GATE 2: output guard
 
 
 if __name__ == "__main__":

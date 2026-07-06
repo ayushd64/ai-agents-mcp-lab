@@ -3,6 +3,7 @@
 import os
 import duckdb
 from mcp.server.fastmcp import FastMCP
+from guardrails import validate_sql, MAX_ROWS
 
 DATA_FILE = os.environ.get("DATA_FILE", "sample_data.csv")
 
@@ -30,30 +31,23 @@ def get_schema(table: str = "data") -> str:
 @mcp.tool()
 def run_query(sql: str) -> str:
     """Run a READ-ONLY SQL query (SELECT only) and return the result as a table."""
-    clean = sql.strip().rstrip(";").strip()
-    lowered = clean.lower()
-
-    # --- guardrail: only allow read-only SELECT / WITH queries ---
-    if not (lowered.startswith("select") or lowered.startswith("with")):
-        return "Error: only read-only SELECT queries are allowed."
-    if ";" in clean:
-        return "Error: only one statement is allowed."
+    ok, result = validate_sql(sql)
+    if not ok:
+        return result                       # the error message from the validator
+    clean = result
 
     try:
-        cur = con.execute(clean)                       # run the query
-        columns = [d[0] for d in cur.description]      # column names
-        rows = cur.fetchall()                          # plain Python rows — no pandas
+        cur = con.execute(clean)
+        columns = [d[0] for d in cur.description]
+        rows = cur.fetchall()
         if not rows:
             return "Query ran, but returned no rows."
-
-        # Build a simple text table
         header = " | ".join(columns)
-        body = "\n".join(" | ".join(str(v) for v in row) for row in rows[:50])
-        extra = f"\n... ({len(rows)} rows total)" if len(rows) > 50 else ""
+        body = "\n".join(" | ".join(str(v) for v in row) for row in rows[:MAX_ROWS])
+        extra = f"\n... ({len(rows)} rows total)" if len(rows) > MAX_ROWS else ""
         return f"{header}\n{body}{extra}"
     except Exception as e:
         return f"Query error: {e}"
-
 
 
 

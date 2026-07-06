@@ -6,6 +6,7 @@ from decimal import Decimal
 import duckdb
 import altair as alt
 from mcp.server.fastmcp import FastMCP
+from guardrails import validate_sql
 
 DATA_FILE = os.environ.get("DATA_FILE", "sample_data.csv")
 
@@ -39,13 +40,13 @@ def make_chart(sql: str, chart_type: str, x: str, y: str, title: str = "") -> st
     """Run a read-only SELECT and return a Vega-Lite chart spec (JSON) visualizing it.
     chart_type: one of bar, line, scatter, area. x and y MUST be output column names
     from the SELECT (use the exact aliases you put in the query)."""
-    clean = sql.strip().rstrip(";").strip()
+    # clean = sql.strip().rstrip(";").strip()
 
     # --- same read-only guardrail as the SQL server ---
-    if not (clean.lower().startswith("select") or clean.lower().startswith("with")):
-        return "Error: only read-only SELECT queries are allowed."
-    if ";" in clean:
-        return "Error: only one statement is allowed."
+    ok, result = validate_sql(sql)
+    if not ok:
+        return result
+    clean = result
     if chart_type not in MARK:
         return f"Error: chart_type must be one of {list(MARK)}."
 
