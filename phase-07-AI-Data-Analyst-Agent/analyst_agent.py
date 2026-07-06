@@ -24,7 +24,8 @@ SYSTEM_PROMPT = (
     "2. Then call run_query with a single read-only SELECT statement (DuckDB SQL syntax).\n"
     "3. Never guess column names — use only the ones get_schema returned.\n"
     "4. After you get results, answer the user in one or two clear sentences, stating the numbers.\n"
-    "5. If a query errors, read the error, fix your SQL, and try again."
+    "5. If a query errors, read the error, fix your SQL, and try again.\n"
+    "6. If a question uses a business term or metric you're unsure of (e.g. 'Q1', 'growth', " "'best region', what a column means), call search_glossary FIRST, then apply that " "definition when writing your SQL.\n"
 )
 
 # --- 3. Point the agent at your SQL MCP server ---
@@ -32,6 +33,11 @@ mcp_client = MultiServerMCPClient({
     "sql": {
         "command": sys.executable,                   # this venv's Python
         "args": [os.path.abspath("sql_server.py")],  # the server from Step 2
+        "transport": "stdio",
+    },
+    "knowledge": {
+        "command": sys.executable,
+        "args": [os.path.abspath("knowledge_server.py")],
         "transport": "stdio",
     },
 })
@@ -43,7 +49,9 @@ async def main():
 
     agent = create_react_agent(model, tools, prompt=SYSTEM_PROMPT, checkpointer=InMemorySaver())
 
-    config = {"configurable": {"thread_id": "analyst-session"}}
+    config = {"configurable": {"thread_id": "analyst-session"},
+              "recursion_limit": 12,
+    }
     print(f"\nData analyst ready (model: {os.environ['MODEL']}). Ask about your data. Type 'exit' to quit.\n")
 
     while True:
@@ -54,7 +62,20 @@ async def main():
             {"messages": [{"role": "user", "content": q}]},
             config=config,
         )
-        print("Analyst:", result["messages"][-1].content, "\n")
+
+        # DEBUG: show every tool the agent called, and with what arguments
+        for msg in result["messages"]:
+            for tc in getattr(msg, "tool_calls", None) or []:
+                print(f"   → called {tc['name']}({tc['args']})")
+
+        # grab the last message that actually has text (local models sometimes end blank)
+        answer = ""
+        for msg in reversed(result["messages"]):
+            text = getattr(msg, "content", "") or ""
+            if isinstance(text, str) and text.strip():
+                answer = text
+                break
+        print("Analyst:", answer or "(no answer — the model returned empty)", "\n")
 
 
 if __name__ == "__main__":
