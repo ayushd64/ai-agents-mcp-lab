@@ -13,3 +13,5 @@ venv1/
 .DS_Store
 .vscode/
 
+current_data.csv
+
