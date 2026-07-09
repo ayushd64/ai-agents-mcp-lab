@@ -11,7 +11,8 @@ mcp = FastMCP("SQL Data Analyst")
 
 # One in-process DuckDB connection, with the CSV loaded as a table "data" at startup.
 con = duckdb.connect(database=":memory:")
-con.execute(f"CREATE TABLE data AS SELECT * FROM read_csv_auto('{DATA_FILE}')")
+con.execute(
+    f"CREATE TABLE data AS SELECT * FROM read_csv('{DATA_FILE}', ignore_errors=true, auto_detect=true)")
 
 
 @mcp.tool()

@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Riso Analyst</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+<script>
+  tailwind.config = {
+    theme: { extend: {
+      colors: { cream:'#F6F0E4', paper:'#FFFDF8', ink:'#211E1A', coral:'#EA4E31', rblue:'#2C43C4', muted:'#8A8378' },
+      fontFamily: { display:['"Space Grotesk"','sans-serif'], body:['Inter','sans-serif'] },
+    }}
+  }
+</script>
+<style>
+  body { background:#F6F0E4; }
+  .hard { box-shadow: 3px 3px 0 #211E1A; }
+  .hard-sm { box-shadow: 2px 2px 0 #211E1A; }
+  .prose-msg strong { font-weight:700; }
+  .prose-msg p { margin:0 0 .5rem; } .prose-msg p:last-child { margin:0; }
+  .prose-msg ul { list-style:disc; margin:.25rem 0 .5rem 1.2rem; }
+  .prose-msg code { background:#F1E9D8; padding:.05rem .3rem; border-radius:4px; font-size:.9em; }
+  .dot { display:inline-block; width:7px; height:7px; min-width:7px; border-radius:50%; background:#EA4E31; margin-right:7px; flex:0.0 auto; animation:pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.25} }
+  #chat::-webkit-scrollbar { width:8px; } #chat::-webkit-scrollbar-thumb { background:#d8cfba; border-radius:4px; }
+</style>
+</head>
+<body class="font-body text-ink h-screen flex flex-col">
+
+  <!-- Header -->
+  <header class="border-b-2 border-ink bg-cream">
+    <div class="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 bg-coral border-2 border-ink rounded-lg hard-sm flex items-center justify-center text-cream font-display font-bold">R</div>
+        <div>
+          <h1 class="font-display font-bold text-lg leading-none">Riso Analyst</h1>
+          <p class="text-xs text-muted">ask your data anything</p>
+        </div>
+      </div>
+      <label class="cursor-pointer bg-paper border-2 border-ink rounded-lg hard-sm px-3 py-1.5 text-sm font-medium hover:-translate-y-0.5 transition">
+        + Upload CSV
+        <input id="file" type="file" accept=".csv" class="hidden"/>
+      </label>
+    </div>
+  </header>
+
+  <!-- Chat -->
+  <main id="chat" class="flex-1 overflow-y-auto">
+    <div class="max-w-3xl mx-auto px-4 py-6 flex flex-col gap-4">
+      <div class="flex justify-start">
+        <div class="assistant-bubble bg-paper border-2 border-ink rounded-2xl rounded-bl-sm hard px-4 py-3 max-w-[85%]">
+          <div class="prose-msg">Hi! I'm your data analyst. Upload a CSV, or ask about the sample sales data — e.g. <em>"which region made the most revenue?"</em> or <em>"show revenue by region as a bar chart."</em></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Input -->
+  <footer class="border-t-2 border-ink bg-cream">
+    <div class="max-w-3xl mx-auto px-4 py-3">
+      <form id="form" class="flex gap-2">
+        <input id="q" autocomplete="off" placeholder="Ask about your data…"
+               class="flex-1 bg-paper border-2 border-ink rounded-xl hard-sm px-4 py-2.5 outline-none focus:-translate-y-0.5 transition"/>
+        <button id="send" class="bg-coral text-cream border-2 border-ink rounded-xl hard-sm px-5 py-2.5 font-display font-bold hover:-translate-y-0.5 transition disabled:opacity-50">Ask</button>
+      </form>
+    </div>
+  </footer>
+
+<script>
+  const chat = document.getElementById('chat').firstElementChild;
+  const form = document.getElementById('form');
+  const input = document.getElementById('q');
+  const sendBtn = document.getElementById('send');
+  const fileInput = document.getElementById('file');
+  const SESSION_ID = 'sess-' + Math.random().toString(36).slice(2);
+
+  const chartConfig = {
+    background:'transparent', font:'Space Grotesk',
+    mark:{ color:'#EA4E31' },
+    axis:{ labelColor:'#211E1A', titleColor:'#211E1A', gridColor:'#eadfc9', domainColor:'#211E1A', tickColor:'#211E1A' },
+    view:{ stroke:'transparent' },
+    title:{ color:'#211E1A', font:'Space Grotesk', fontSize:14 }
+  };
+
+  const scrollDown = () => { document.getElementById('chat').scrollTop = 1e9; };
+  const escapeHtml = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+  function addUser(text){
+    chat.insertAdjacentHTML('beforeend',
+      `<div class="flex justify-end"><div class="bg-ink text-cream rounded-2xl rounded-br-sm px-4 py-3 max-w-[85%] hard-sm">${escapeHtml(text)}</div></div>`);
+    scrollDown();
+  }
+  function addAssistant(){
+    const wrap = document.createElement('div');
+    wrap.className = 'flex justify-start';
+    wrap.innerHTML =
+      `<div class="assistant-bubble bg-paper border-2 border-ink rounded-2xl rounded-bl-sm hard px-4 py-3 max-w-[85%] min-w-[80px]">
+         <div class="step text-xs mb-2 flex flex-col gap-0.5">
+           <div class="font-display font-bold text-ink flex items-center gap-1.5 mb-0.5">
+             <span class="agent-dot dot"></span>Agent
+           </div>
+           <div class="step-active text-coral flex items-center gap-1.5 ml-1"><span class="ind w-3 flex justify-center"><span class="dot"></span></span><span>Thinking…</span></div>
+         </div>
+         <div class="sqlbox mb-2"></div>
+         <div class="msg prose-msg"></div>
+         <div class="chart mt-2"></div>
+       </div>`;
+    chat.appendChild(wrap); scrollDown();
+    return wrap.querySelector('.assistant-bubble');
+  }
+  function addNote(text){
+    chat.insertAdjacentHTML('beforeend',
+      `<div class="text-center"><span class="inline-block bg-rblue/10 text-rblue text-xs border-2 border-rblue rounded-full px-3 py-1">${escapeHtml(text)}</span></div>`);
+    scrollDown();
+  }
+
+  function ask(q){
+    addUser(q);
+    const bubble = addAssistant();
+    const stepEl = bubble.querySelector('.step');
+    const sqlEl = bubble.querySelector('.sqlbox'); 
+    const msgEl  = bubble.querySelector('.msg');
+    const chartEl= bubble.querySelector('.chart');
+    let text = '';
+
+    const es = new EventSource('/stream?q=' + encodeURIComponent(q) + '&thread_id=' + SESSION_ID);
+
+    es.addEventListener('sql', e => {
+      let sql = JSON.parse(e.data).trim();
+      if (!sql.endsWith(';')) sql += ';';        // add trailing ; for display only
+      const d = document.createElement('details');
+      d.className = 'border-2 border-ink rounded-lg hard-sm bg-cream mb-1 text-sm overflow-hidden';
+      d.innerHTML =
+        `<summary class="cursor-pointer select-none px-3 py-1.5 font-display font-medium">
+           <span class="text-coral">SQL</span> — view query
+         </summary>
+         <pre class="px-3 py-2 border-t-2 border-ink overflow-x-auto text-xs leading-relaxed"><code></code></pre>`;
+      d.querySelector('code').textContent = sql;
+      sqlEl.appendChild(d);
+      scrollDown();
+    });
+
+
+es.addEventListener('step', e => {
+      const prev = stepEl.querySelector('.step-active');
+      if (prev){
+        prev.classList.remove('step-active','text-coral');
+        prev.classList.add('text-muted');
+        prev.querySelector('.ind').innerHTML = '<span class="text-green-600">✓</span>';
+      }
+      const line = document.createElement('div');
+      line.className = 'step-active text-coral flex items-center gap-1.5 ml-1';
+      line.innerHTML = `<span class="ind w-3 flex justify-center"><span class="dot"></span></span><span>${JSON.parse(e.data)}</span>`;
+      stepEl.appendChild(line);
+      scrollDown();
+    });
+
+    es.addEventListener('token', e => {
+      const active = stepEl.querySelector('.step-active');
+      if (active){
+        active.classList.remove('step-active','text-coral');
+        active.classList.add('text-muted');
+        active.querySelector('.ind').innerHTML = '<span class="text-green-600">✓</span>';
+      }
+      text += JSON.parse(e.data);
+      msgEl.innerHTML = marked.parse(text);
+      scrollDown();
+    });
+
+
+
+    es.addEventListener('chart', e => {
+      const spec = JSON.parse(JSON.parse(e.data));   // data → spec string → spec object
+      spec.width = 460;     // fill the bubble width
+      spec.height = 300;     // a proper, unsquished height
+      spec.autosize = {type: 'fit', contains: 'padding' };
+      if (spec.encoding) {
+        spec.encoding.tooltip = Object.values(spec.encoding).map(enc=> ({ field: enc.field, type: enc.type}));
+        spec.encoding.opacity = { condition: { param: 'hover', value: 1 }, value: 0.75 };
+        spec.params = [{ name: 'hover', select: { type: 'point', on: 'pointerover'} }];
+      }
+      const div = document.createElement('div');
+      div.style.width = '100%';
+      chartEl.appendChild(div);
+      vegaEmbed(div, spec, { actions:false, config: chartConfig }).catch(console.error);
+      scrollDown();
+    });
+    const finish = () => { 
+        es.close(); 
+        setBusy(false); 
+        const hd = bubble.querySelector('.agent-dot');
+        if (hd){
+            hd.classList.remove('dot');
+            hd.style.background = '#16a34a'
+        }
+        const active = stepEl.querySelector('.step-active');
+        if (active){
+            active.classList.remove('step-active', 'text-coral');
+            active.classList.add('text-muted');
+            active.querySelector('.ind').innerHTML = '<span class="text-green-600">✓</span>';
+        }
+    };
+    es.addEventListener('done', finish);
+    es.onerror = finish;
+  }
+
+  function setBusy(b){ input.disabled = b; sendBtn.disabled = b; if(!b) input.focus(); }
+
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    const q = input.value.trim(); if(!q) return;
+    input.value = ''; setBusy(true); ask(q);
+  });
+
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files[0]; if(!file) return;
+    addNote(`Uploading ${file.name}…`);
+    const fd = new FormData(); fd.append('file', file);
+    try {
+      const res = await fetch('/upload', { method:'POST', body: fd });
+      const data = await res.json();
+      addNote(`Loaded ${file.name} — ${data.rows} rows · ${data.columns.map(c=>c.name).join(', ')}`);
+    } catch { addNote('Upload failed.'); }
+    fileInput.value = '';
+  });
+</script>
+</body>
+</html>
+

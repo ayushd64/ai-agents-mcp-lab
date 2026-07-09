@@ -13,7 +13,8 @@ DATA_FILE = os.environ.get("DATA_FILE", "sample_data.csv")
 mcp = FastMCP("Chart Maker")
 
 con = duckdb.connect(database=":memory:")
-con.execute(f"CREATE TABLE data AS SELECT * FROM read_csv_auto('{DATA_FILE}')")
+con.execute(
+    f"CREATE TABLE data AS SELECT * FROM read_csv('{DATA_FILE}', ignore_errors=true, auto_detect=true)")
 
 MARK = {"bar": "mark_bar", "line": "mark_line", "scatter": "mark_point",
         "point": "mark_point", "area": "mark_area"}
