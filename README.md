@@ -5,7 +5,8 @@
 Ask questions in plain English. Riso Analyst writes and runs the SQL, understands your business terms, draws interactive charts, and shows its work — all powered by a single LangGraph agent orchestrating specialized **MCP (Model Context Protocol)** tool-servers.
 
 <!-- Replace with your recorded clip. GitHub embeds MP4s inline; GIFs autoplay. -->
-![Riso Analyst demo](assets/demo.gif)
+<img width="2548" height="1292" alt="Demo" src="https://github.com/user-attachments/assets/fad7f7d8-94a3-4f2c-8bbd-527d85db728c" />
+
 
 ---
 
