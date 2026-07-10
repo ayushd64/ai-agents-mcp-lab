@@ -5,7 +5,8 @@
 RepoGraph clones any public repository, analyzes its structure with static code parsing, and renders it as an interactive graph where **files, functions, and classes are nodes** and their **imports and containment are edges**. On top of the graph sits an AI assistant: click any node to have it explained, or ask "how does routing work?" and get an answer grounded in the actual code, with file citations.
 
 <!-- Replace with your recorded clip. GitHub embeds MP4s inline; GIFs autoplay. -->
-<img width="2547" height="1292" alt="Animation" src="https://github.com/user-attachments/assets/102d356d-f552-405a-a61f-24676f930a95" />
+<img width="2547" height="1292" alt="Animation" src="https://github.com/user-attachments/assets/9145d9aa-4c57-4baf-88a1-2a23acabf603" />
+
 
 
 ---
