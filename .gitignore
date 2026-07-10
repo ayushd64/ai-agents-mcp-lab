@@ -15,3 +15,5 @@ venv1/
 
 current_data.csv
 
+faiss_cache/
+

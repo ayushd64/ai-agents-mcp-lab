@@ -1,4 +1,18 @@
 # analyze_repo.py — turn a Python repo into an interactive graph (files + functions/classes)
+LEGEND_HTML = """
+<div style="position:fixed;top:16px;left:16px;z-index:999;background:rgba(255,255,255,0.85);
+            backdrop-filter:blur(10px);color:#1a2233;padding:12px 16px;border:1px solid #e2e8f0;
+            border-radius:14px;box-shadow:0 8px 24px rgba(79,70,229,0.10);font-family:'Inter',sans-serif;font-size:13px">
+  <b style="color:#4f46e5">Legend</b><br>
+  <span style="color:#4f46e5">●</span> File &nbsp;
+  <span style="color:#ec4899">●</span> Class &nbsp;
+  <span style="color:#f59e0b">●</span> Function<br>
+  <span style="color:#6366f1">—</span> imports &nbsp;
+  <span style="color:#cbd5e1">—</span> contains<br>
+  <small style="color:#64748b">Bigger node = more connected</small>
+</div>"""
+
+
 
 import ast, os, sys, subprocess, tempfile
 import networkx as nx
@@ -23,6 +37,18 @@ def py_files(root: str):
         for fn in files:
             if fn.endswith(".py"):
                 yield os.path.join(dirpath, fn)
+
+
+DOC_EXTS = {".md", ".rst", ".txt"}
+
+def doc_files(root: str):
+    for dirpath, dirs, files in os.walk(root):
+        dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
+        for fn in files:
+            if os.path.splitext(fn)[1].lower() in DOC_EXTS:
+                yield os.path.join(dirpath, fn)
+
+
 
 
 def rel_id(root: str, path: str) -> str:
@@ -79,63 +105,82 @@ def build_graph(root: str) -> nx.DiGraph:
     return G
 
 
-
-
-def render(G: nx.DiGraph, out: str = "graph.html"):
-    # importance = how connected a node is. Files that many others import get big.
+def render(G: nx.DiGraph, out: str = None) -> str:
+    import tempfile
     centrality = nx.degree_centrality(G)
     cmax = max(centrality.values()) if centrality else 1
 
-    net = Network(height="820px", width="100%", directed=True,
-                  bgcolor="#0e1117", font_color="#e6e6e6")
+    net = Network(height="100vh", width="100%", directed=True,
+                  bgcolor="#f7f8fc", font_color="#1a2233")      # light bg, dark text
     net.barnes_hut()
-    color = {"file": "#4c8bf5", "function": "#f5a623", "class": "#e0508a"}
+    color = {"file": "#4f46e5", "function": "#f59e0b", "class": "#ec4899"}  # indigo / amber / pink
 
     for n, d in G.nodes(data=True):
         k = d.get("kind", "file")
-        # base size per kind, scaled up by how central the node is
         base = {"file": 16, "class": 12, "function": 8}[k]
-        boost = 40 * (centrality.get(n, 0) / cmax)     # 0..40 extra by importance
-        net.add_node(n, label=d.get("label", n), color=color[k],
-                     size=base + boost, group=k,
-                     title=f"{k}: {n}\connections: {G.degree(n)}")
+        boost = 40 * (centrality.get(n, 0) / cmax)
+        net.add_node(n, label=d.get("label", n), color=color[k], size=base + boost,
+                     group=k, title=f"{k}: {n}\nconnections: {G.degree(n)}")
+
     for u, v, d in G.edges(data=True):
         is_import = d.get("kind") == "imports"
-        net.add_edge(u, v, color="#3ad1c8" if is_import else "#444",
-                     title=d.get("kind", ""))
-    net.write_html(out, notebook=False)
-    print(f"Wrote {out} — open it in your browser.")
-    # built-in interactive controls (physics sliders, node/edge options)
+        net.add_edge(u, v, color="#6366f1" if is_import else "#cbd5e1",   # indigo imports, soft grey contains
+                     width=3 if is_import else 1, title=d.get("kind", ""))
+
     net.show_buttons(filter_=['physics'])
-
-    net.write_html(out, notebook=False)
-
-    # inject a small color legend into the generated HTML
-    legend = """
-    <div style="position:fixed;top:12px;left:12px;z-index:999;background:#161b22;
-                color:#e6e6e6;padding:10px 14px;border:1px solid #30363d;border-radius:8px;
-                font-family:sans-serif;font-size:13px">
-      <b>Legend</b><br>
-      <span style="color:#4c8bf5">●</span> File &nbsp;
-      <span style="color:#e0508a">●</span> Class &nbsp;
-      <span style="color:#f5a623">●</span> Function<br>
-      <span style="color:#3ad1c8">—</span> imports &nbsp;
-      <span style="color:#888">—</span> contains<br>
-      <small>Bigger node = more connected</small>
-    </div>"""
-    with open(out, encoding="utf-8") as f:
+    tmp = out or os.path.join(tempfile.mkdtemp(), "g.html")
+    net.write_html(tmp, notebook=False)
+    with open(tmp, encoding="utf-8") as f:
         html = f.read()
-    html = html.replace("<body>", "<body>" + legend)
-    with open(out, "w", encoding="utf-8") as f:
-        f.write(html)
+    html = html.replace("<body>", "<body>" + LEGEND_HTML)
+    if out:
+        with open(out, "w", encoding="utf-8") as f:
+            f.write(html)
+    return html
 
-    print(f"Wrote {out} — open it in your browser.")
+
+
+
+def graph_stats(G: nx.DiGraph) -> dict:
+    """Summary numbers + the most-connected files ('god nodes')."""
+    files = [n for n, d in G.nodes(data=True) if d.get("kind") == "file"]
+    cent = nx.degree_centrality(G)
+    top = sorted(files, key=lambda n: cent.get(n, 0), reverse=True)[:5]
+    return {
+        "nodes": G.number_of_nodes(),
+        "edges": G.number_of_edges(),
+        "files": len(files),
+        "top": [{"name": n, "connections": G.degree(n)} for n in top],
+    }
+
+
+def connections_text(G, file_id: str) -> str:
+    """Plain-language structural context for a file, pulled from the graph."""
+    imports = [v for _, v, d in G.out_edges(file_id, data=True) if d.get("kind") == "imports"]
+    imported_by = [u for u, _, d in G.in_edges(file_id, data=True) if d.get("kind") == "imports"]
+    parts = []
+    if imports:     parts.append(f"{file_id} imports: {', '.join(imports)}")
+    if imported_by: parts.append(f"{file_id} is imported by: {', '.join(imported_by)}")
+    return " | ".join(parts) or f"{file_id}: no internal import links"
+
+
+
+def files_only(G: nx.DiGraph) -> nx.DiGraph:
+    """A clean architecture view: only files + their import relationships."""
+    keep = [n for n, d in G.nodes(data=True) if d.get("kind") == "file"]
+    H = G.subgraph(keep).copy()
+    # drop any leftover non-import edges
+    H.remove_edges_from([(u, v) for u, v, d in H.edges(data=True) if d.get("kind") != "imports"])
+    return H
+
 
 
 if __name__ == "__main__":
     source = sys.argv[1] if len(sys.argv) > 1 else "."
     root = get_repo(source)
     G = build_graph(root)
-    print(f"Graph: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
-    render(G)
+    print(f"Full graph: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
+    render(G, "graph.html")                       # detailed view (files + functions)
+    render(files_only(G), "architecture.html")    # clean view (files + imports only)
+
 

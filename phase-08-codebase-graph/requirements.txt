@@ -1,2 +1,11 @@
 networkx
 pyvis
+fastapi
+uvicorn[standard]
+langchain-openai
+langchain-community
+langchain-huggingface
+sentence-transformers
+langchain-text-splitters
+faiss-cpu
+python-dotenv
